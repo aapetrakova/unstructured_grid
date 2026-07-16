@@ -34,5 +34,21 @@ struct ContourPoint: public Point {
   ~ContourPoint() override = default;
 };
 
+struct Edge {
+  ContourPoint start;
+  ContourPoint end;
+  Edge* next = nullptr;
+  Edge* prev = nullptr;
+
+  Edge() = default;
+  Edge(ContourPoint start, ContourPoint end): start(start), end(end), next(nullptr), prev(nullptr) {}
+  Edge(Point start, Point end): start(start.x, start.y, 0, 0), end(end.x, end.y, 0, 1), next(nullptr), prev(nullptr) {}
+
+  Edge(const Edge& other) = default;
+  Edge& operator=(const Edge& other) = default;
+
+  ~Edge() = default;
+};
+
 
 #endif FIGURE_H
