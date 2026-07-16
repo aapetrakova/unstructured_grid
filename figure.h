@@ -35,14 +35,13 @@ struct ContourPoint: public Point {
 };
 
 struct Edge {
-  ContourPoint start;
-  ContourPoint end;
+  ContourPoint* start = nullptr;
+  ContourPoint* end = nullptr;
   Edge* next = nullptr;
   Edge* prev = nullptr;
 
   Edge() = default;
-  Edge(ContourPoint start, ContourPoint end): start(start), end(end), next(nullptr), prev(nullptr) {}
-  Edge(Point start, Point end): start(start.x, start.y, 0, 0), end(end.x, end.y, 0, 1), next(nullptr), prev(nullptr) {}
+  Edge(ContourPoint* start, ContourPoint* end): start(start), end(end), next(nullptr), prev(nullptr) {}
 
   Edge(const Edge& other) = default;
   Edge& operator=(const Edge& other) = default;
@@ -50,5 +49,43 @@ struct Edge {
   ~Edge() = default;
 };
 
+bool operator==(const Edge& e1, const Edge& e2);
+bool operator!=(const Edge& e1, const Edge& e2);
 
-#endif FIGURE_H
+struct Triangle {
+  ContourPoint A;
+  ContourPoint B;
+  ContourPoint C;
+  Edge AB;
+  Edge BC;
+  Edge CA;
+  Triangle* near_AB = nullptr;
+  Triangle* near_BC = nullptr;
+  Triangle* near_CA = nullptr;
+  
+  Triangle() = default;
+  Triangle(ContourPoint& A, ContourPoint& B, ContourPoint& C)
+    : A(A), B(B), C(C)
+      , AB(&this->A, &this->B)
+      , BC(&this->B, &this->C)
+      , CA(&this->C, &this->A) {}
+
+  Triangle(const Triangle& other) 
+    : A(other.A), B(other.B), C(other.C)
+      , AB(&this->A, &this->B)
+      , BC(&this->B, &this->C)
+      , CA(&this->C, &this->A)
+      , near_AB(other.near_AB)
+      , near_BC(other.near_BC)
+      , near_CA(other.near_CA) {}                                                                                                                                            
+  Triangle& operator=(const Triangle& other);
+
+  Triangle(Triangle&& other) noexcept;
+  Triangle& operator=(Triangle&& other) noexcept;
+
+  ~Triangle() = default;
+};
+
+void link_neighbors(Triangle* t1, Triangle* t2);
+
+#endif // FIGURE_H
