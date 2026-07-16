@@ -1,12 +1,7 @@
 #ifndef FIGURE_H
 #define FIGURE_H
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <iostream>
 #include <memory>
-#include <tuple>
 
 struct Point {
   double x;
