@@ -3,17 +3,50 @@
 /*
  * Edge compare operators
 */
-bool operator==(const Edge& e1, const Edge& e2) {
-  if (!e1.start || !e1.end || !e2.start || !e2.end) { return false; }
-  
+bool operator==(const Edge& e1, const Edge& e2){
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  } 
+                                                       
   bool direct = (e1.start->num == e2.start->num && e1.end->num == e2.end->num);
   bool reverse = (e1.start->num == e2.end->num && e1.end->num == e2.start->num);
+                                                       
+  // regardless of direction (geometric neighbors)   
+  return direct || reverse;                                                                               
+}                                                    
+bool operator!=(const Edge& e1, const Edge& e2) {
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  }                          
+  return !(e1 == e2);
+}               
+bool operator<(const Edge& e1, const Edge& e2) {
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {    
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  }
+  auto min_max1 = std::make_pair(std::min(e1.start->num, e1.end->num), std::max(e1.start->num, e1.end->num));
+  auto min_max2 = std::make_pair(std::min(e2.start->num, e2.end->num), std::max(e2.start->num, e2.end->num));
   
-  // regardless of direction (geometric neighbors)
-  return direct || reverse;
-}  
-bool operator!=(const Edge& e1, const Edge& e2) { return !(e1 == e2); }
-
+  return min_max1 < min_max2;
+}        
+bool operator>=(const Edge& e1, const Edge& e2) {
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  }      
+  return !(e1 < e2);
+}        
+bool operator>(const Edge& e1, const Edge& e2) {
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  } 
+  return !(e1 < e2) && !(e1 == e2);
+}                             
+bool operator<=(const Edge& e1, const Edge& e2) {
+  if (!e1.start || !e1.end || !e2.start || !e2.end) {
+    throw std::runtime_error("Err: can not compare edges with nullptr pointers");
+  } 
+  return (e1 < e2) || (e1 == e2);
+} 
 
 /*
  * Triangle

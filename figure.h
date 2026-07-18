@@ -1,7 +1,9 @@
 #ifndef FIGURE_H
 #define FIGURE_H
 
+#include <iostream>
 #include <memory>
+#include <ostream>
 
 struct Point {
   double x;
@@ -17,11 +19,12 @@ struct Point {
 struct ContourPoint: public Point {
   size_t c_num;
   size_t num;
+  bool is_real;
   ContourPoint* next = nullptr;
   ContourPoint*prev = nullptr;
 
   ContourPoint() = default;
-  ContourPoint(double x, double y, size_t c_num, size_t num): Point(x, y), c_num(c_num), num(num) {}
+  ContourPoint(double x, double y, bool is_real, size_t c_num, size_t num): Point(x, y), is_real(is_real), c_num(c_num), num(num) {}
   
   ContourPoint(const ContourPoint& other) = default;
   ContourPoint& operator=(const ContourPoint& other) = default;
@@ -46,6 +49,10 @@ struct Edge {
 
 bool operator==(const Edge& e1, const Edge& e2);
 bool operator!=(const Edge& e1, const Edge& e2);
+bool operator<(const Edge& e1, const Edge& e2);
+bool operator>=(const Edge& e1, const Edge& e2);
+bool operator>(const Edge& e1, const Edge& e2);
+bool operator<=(const Edge& e1, const Edge& e2);
 
 struct Triangle {
   ContourPoint A;
