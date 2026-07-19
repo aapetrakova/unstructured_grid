@@ -37,7 +37,6 @@ std::vector<std::vector<ContourPoint>> read_contour_csv(const std::string& filen
         current_contour.clear();
 
         ++cur_c_num;
-        cur_num = 0;
       }
       continue;
     }
@@ -49,7 +48,7 @@ std::vector<std::vector<ContourPoint>> read_contour_csv(const std::string& filen
       try {
         double x = std::stod(x_str);
         double y = std::stod(y_str);
-        current_contour.push_back(ContourPoint(x, y, cur_c_num, cur_num));
+        current_contour.push_back(ContourPoint(x, y, true, cur_c_num, cur_num));
         ++cur_num;
       } catch (const std::invalid_argument& e) {
         std::cerr << "Err: invalid argument in contour file, str: " << line << std::endl;
@@ -66,24 +65,23 @@ std::vector<std::vector<ContourPoint>> read_contour_csv(const std::string& filen
   return all_contours;
 }
 
-void build_contour_connections(std::vector<std::vector<ContourPoint>>& all_contours) {
+void build_contour_connections(std::vector<ContourPoint>& contour) {
   /*
    * Construction of the initial circuit topology.
    *
    * The function accepts as arguments:
-      - const std::string& filename -- data file name
+      - const std::vector<ContourPoint>& contour -- some contour
    *
    * The function returns nothing
   */
+  if (contour.empty()) {
+    std::cerr << "Warning: contour is empty" << std::endl;
+  }
 
-  for (auto& contour : all_contours) {
-    if (contour.empty()) continue;
-
-    size_t n = contour.size();
-    for (size_t i = 0; i < n; ++i) {
-      contour[i].next = &contour[(i + 1) % n];
-      contour[i].prev = &contour[(i - 1 + n) % n];
-    }
+  size_t n = contour.size();
+  for (size_t i = 0; i < n; ++i) {
+    contour[i].next = &contour[(i + 1) % n];
+    contour[i].prev = &contour[(i - 1 + n) % n];
   }
 }
 
@@ -127,5 +125,162 @@ std::vector<Point> read_throw_in_points_csv(const std::string& filename) {
 
   file.close();
   return points;
+}
+
+
+/*
+   * Hard triangle grid building
+  */
+  // Area preparation
+double Z(ContourPoint P, ContourPoint Q, ContourPoint R) {
+  return (Q.x - P.x)*(R.y - P.y) - (Q.y - P.y)*(R.x - P.x);
+}
+
+bool check_edge_intersection(const std::set<Edge>& edges, Edge AB) {
+  /*
+   * Checks for intersections between the given edge and the other specified edges, excluding adjacent edges
+   * The function accepts as arguments:
+        - std::set<Edge>& edges -- a set of edges with which we are seeking an intersection
+        - Edge AB -- target edge
+   * The function returns a Boolean flag with a value of 0 if there is no intersection, and 1 if there is
+  */
+  ContourPoint* A = AB.start;
+  ContourPoint* B = AB.end;
+  if (!A || !B) {return false; }
+
+  double d1, d2, d3, d4;
+
+  for (auto& edge : edges) {
+    ContourPoint* C = edge.start;
+    ContourPoint* D = edge.end;
+    if (!C || !D) { continue; }
+    
+    // checking for edge coincidence and adjacency
+    if ((A->num == C->num && B->num == D->num) || (A->num == D->num && B->num == C->num)) { continue; }
+    if (A->num == C->num || A->num == D->num || B->num == C->num || B->num == D->num) { continue; }
+
+    // fast checking
+    bool intersect_X = (std::min(A->x, B->x) <= std::max(C->x, D->x)) &&
+      (std::min(C->x, D->x) <= std::max(A->x, B->x));
+    bool intersect_Y = (std::min(A->y, B->y) <= std::max(C->y, D->y)) &&
+      (std::min(C->y, D->y) <= std::max(A->y, B->y));
+
+    if (!intersect_X || !intersect_Y) { continue; }
+
+    // strong checking
+    d1 = Z(*A, *B, *C);
+    d2 = Z(*A, *B, *D);
+    d3 = Z(*C, *D, *A);
+    d4 = Z(*C, *D, *B);
+
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) { return true;}
+
+    // if one of the vertices lies on the edge
+    constexpr double EPS = 1e-9;
+    if (std::fabs(d1) < EPS && std::min(A->x, B->x) <= C->x && C->x <= std::max(A->x, B->x) && std::min(A->y, B->y) <= C->y && C->y <= std::max(A->y, B->y)) { return true; }
+    if (std::fabs(d2) < EPS && std::min(A->x, B->x) <= D->x && D->x <= std::max(A->x, B->x) && std::min(A->y, B->y) <= D->y && D->y <= std::max(A->y, B->y)) { return true; }
+    if (std::fabs(d3) < EPS && std::min(C->x, D->x) <= A->x && A->x <= std::max(C->x, D->x) && std::min(C->y, D->y) <= A->y && A->y <= std::max(C->y, D->y)) { return true; }
+    if (std::fabs(d4) < EPS && std::min(C->x, D->x) <= B->x && B->x <= std::max(C->x, D->x) && std::min(C->y, D->y) <= B->y && B->y <= std::max(C->y, D->y)) { return true; }
+  }
+  return false;
+}
+
+void circ_shift(const ContourPoint& A, std::vector<ContourPoint>& contour) {
+  /*
+   * Cyclically shift the contour points until the given point becomes the first one. Without preserving pointers.
+   * The function accepts as arguments:
+        - const ContourPoint& A -- target point
+        - std::vector<ContourPoint>& contour -- target contour
+   * The function returns nothing
+  */
+  size_t target_num = A.num;
+  auto it = std::find_if(contour.begin(), contour.end(), [target_num](const ContourPoint& pt) {
+    return pt.num == target_num;
+  });
+
+  if (it != contour.end() && it != contour.begin()) {
+    std::rotate(contour.begin(), it, contour.end());
+  }
+}
+
+std::vector<ContourPoint> prepare_area(const std::vector<std::vector<ContourPoint>>& all_contours) {
+  /*
+   * Transforming the initial domain into a simply connected one by adding internal contours to the external contour.
+   * The function accepts as arguments:
+        - const std::vector<std::vector<ContourPoint>>& all_contours -- vector with all contours (const, because we cannot modify this vector without problems with pointers)
+   * The function returns simple_points -- a new contour defining a simply connected region
+  */
+  if (all_contours.empty()) return {};
+
+  std::set<Edge> simple_edges;
+  std::vector<ContourPoint> simple_points = all_contours[0];
+
+  size_t total_max_points = 0;
+  for (const auto& contour : all_contours) {
+    total_max_points += contour.size();
+  }
+  total_max_points += (all_contours.size() - 1) * 2;
+  simple_points.reserve(total_max_points);
+
+  size_t n = simple_points.size();
+  for (size_t i = 0; i < n; ++i) {
+    simple_points[i].next = &simple_points[(i + 1) % n];
+    simple_points[i].prev = &simple_points[(i - 1 + n) % n];
+    simple_edges.insert(Edge(&simple_points[i], simple_points[i].next));
+  }
+
+  for (const auto& contour : all_contours) {
+    if (contour.empty() || contour[0].c_num == 0) { continue; }
+
+    bool find_no_intersec_edge = false;
+    size_t found_A_idx = 0;
+    ContourPoint found_B_point;
+
+    for (auto& B : const_cast<std::vector<ContourPoint>&>(contour)) {
+      for (size_t i = 0; i < simple_points.size(); ++i) {
+        auto& A = simple_points[i];
+        Edge cur_edge(&A, &B);
+
+        if (!check_edge_intersection(simple_edges, cur_edge)) {
+          find_no_intersec_edge = true;
+          found_A_idx = i;
+          found_B_point = B;
+          break;
+        }
+      }
+      if (find_no_intersec_edge) { break; }
+    }
+
+    if (find_no_intersec_edge) {
+      std::vector<ContourPoint> cur_contour = contour;
+      circ_shift(found_B_point, cur_contour);
+
+      auto& real_A = simple_points[found_A_idx];
+
+      ContourPoint A_copy(real_A);
+      ContourPoint B_copy(found_B_point);
+      A_copy.is_real = false; B_copy.is_real = false;
+
+      std::vector<ContourPoint> insertion_block = cur_contour;
+      insertion_block.push_back(B_copy);
+      insertion_block.push_back(A_copy);
+
+      auto it = simple_points.begin() + found_A_idx;
+      simple_points.insert(it + 1, insertion_block.begin(), insertion_block.end());
+
+      simple_edges.clear();
+      for (size_t i = 0; i < simple_points.size(); ++i) {
+        simple_points[i].next = &simple_points[(i + 1) % simple_points.size()];
+        simple_edges.insert(Edge(&simple_points[i], simple_points[i].next));
+      }
+
+      for (size_t i = 0; i < contour.size(); ++i) {
+        simple_edges.insert(Edge(const_cast<ContourPoint*>(&contour[i]), const_cast<ContourPoint*>(&contour[(i + 1) % contour.size()])));
+      }
+    }
+  }
+
+  build_contour_connections(simple_points);
+  return simple_points;
 }
 
