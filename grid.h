@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -28,5 +29,11 @@ double Z(ContourPoint P, ContourPoint Q, ContourPoint R);
 bool check_edge_intersection(const std::set<Edge>& edges, Edge AB);
 void circ_shift(const ContourPoint& A, std::vector<ContourPoint>& contour);
 std::vector<ContourPoint> prepare_area(const std::vector<std::vector<ContourPoint>>& all_contours);
-
+// first step
+bool check_available_triangle(std::vector<ContourPoint>& simple_points, ContourPoint& A, ContourPoint& B, ContourPoint& C);
+void link_all_triangles(std::vector<Triangle>& triangles);
+std::vector<Triangle> hard_grid_step_1(std::vector<ContourPoint>& simple_points);
+std::vector<Triangle> hard_grid_step_2(std::vector<ContourPoint>& simple_points);
+bool delone_condition(const Triangle& ABC, const ContourPoint* D);
+std::vector<Triangle> make_hard_grid(const std::vector<std::vector<ContourPoint>>& all_contours);
 #endif // GRID_H

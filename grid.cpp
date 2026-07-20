@@ -284,3 +284,130 @@ std::vector<ContourPoint> prepare_area(const std::vector<std::vector<ContourPoin
   return simple_points;
 }
 
+// first step
+bool check_available_triangle(std::vector<ContourPoint>& simple_points, ContourPoint& A, ContourPoint& B, ContourPoint& C) {
+  double d1, d2, d3;
+  for (const auto& D : simple_points) {
+    if (D.num == A.num || D.num == B.num || D.num == C.num) { continue; }
+
+    d1 = Z(D, A, B);
+    d2 = Z(D, B, C);
+    d3 = Z(D, C, A);
+
+    if (d1 == 0 || d2 == 0 || d3 == 0) { return false; }
+    if (!(d1*d2 < 0 || d2*d3 < 0 || d3*d1 < 0)) { return false; }
+  }
+
+  return true;
+}
+
+void link_all_triangles(std::vector<Triangle>& triangles) {
+  std::map<Edge, Triangle*> edge_to_triangle_map;
+  size_t len = triangles.size();
+
+  for (size_t i = 0; i < len; ++i) {
+    Triangle* cur = &triangles[i];
+
+    Edge* cur_edges[3] = {&cur->AB, &cur->BC, &cur->CA};
+    for(int j = 0; j < 3; ++j) {
+      Edge* edge = cur_edges[j];
+      auto it = edge_to_triangle_map.find(*edge);
+
+      if (it != edge_to_triangle_map.end()) {
+        Triangle* neighbor = it->second;
+        link_neighbors(cur, neighbor);
+        edge_to_triangle_map.erase(it);
+      } else {
+        edge_to_triangle_map[*edge] = cur;
+      }
+    }
+  }
+}
+
+std::vector<Triangle> hard_grid_step_1(std::vector<ContourPoint>& simple_points) {
+  if (simple_points.size() < 3) { return {}; }
+
+  std::vector<Triangle> hard_triangles;
+  hard_triangles.reserve(simple_points.size() - 2);
+
+  size_t num_of_available_points = simple_points.size();
+  ContourPoint* A = &simple_points[0];
+
+  while (num_of_available_points != 2) {
+    ContourPoint* B = A->next;
+    ContourPoint* C = B->next;
+
+    if((Z(*B, *A, *C) < 0) && check_available_triangle(simple_points,*A, *B, *C)) {
+      hard_triangles.emplace_back(*A, *B, *C);
+      A->next = C;
+      C->prev = A;
+
+      --num_of_available_points;
+      A = C;
+    } else {
+      A = B;
+    }
+  }
+  return hard_triangles;
+}
+std::vector<Triangle> hard_grid_step_2(std::vector<ContourPoint>& simple_points) {
+  if (simple_points.size() < 3) { return {}; }
+  
+  std::vector<Triangle> fake_triangles;
+  fake_triangles.reserve(simple_points.size() - 2);
+  
+  size_t num_of_available_points = simple_points.size();
+  ContourPoint* A = &simple_points[0];
+  
+  size_t failed_attempts_in_a_row = 0;
+  
+  while (num_of_available_points != 2) {
+    ContourPoint* B = A->next;
+    ContourPoint* C = B->next;
+  
+    if((Z(*B, *A, *C) > 0) && check_available_triangle(simple_points,*A, *B, *C)) {
+      fake_triangles.emplace_back(*A, *B, *C);
+      fake_triangles.back().is_real = false;
+      A->next = C;
+      C->prev = A;
+  
+      --num_of_available_points;
+      A = C;
+      failed_attempts_in_a_row = 0;
+    } else {
+      A = B;
+      ++failed_attempts_in_a_row;
+    }
+    if (failed_attempts_in_a_row >= num_of_available_points) {
+      break;
+    }
+  }
+  return fake_triangles;
+}
+bool delone_condition(const Triangle& ABC, const ContourPoint* D) {
+  double x1 = ABC.A.x - D->x; double y1 = ABC.A.y - D->y;
+  double x2 = ABC.B.x - D->x; double y2 = ABC.B.y - D->y;
+  double x3 = ABC.C.x - D->x; double y3 = ABC.C.y - D->y;
+
+  double s1 = x1*x1 + y1*y1;
+  double s2 = x2*x2 + y2*y2;
+  double s3 = x3*x3 + y3*y3;
+
+  double a = x1*(y2 - y3) - y1*(x2 - x3) + (x2*y3 - y2*x3);
+  double d = s1 * (x2*y3 - x3*y2) - x1 * (s2*y3 - s3*y2) + y1 * (s2*x3 - s3*x2)  ;
+
+  double sign_a = (a >= 0) ? 1.0 : -1.0;
+
+  return (d*sign_a) <= 0;
+}
+
+std::vector<Triangle> make_hard_grid(const std::vector<std::vector<ContourPoint>>& all_contours) {
+  std::vector<ContourPoint> simple_points = prepare_area(all_contours);
+  std::vector<ContourPoint> simple_points_copy = simple_points;
+  std::vector<Triangle> grid = hard_grid_step_1(simple_points);
+  std::vector<Triangle> step2 = hard_grid_step_2(simple_points_copy);
+  grid.insert(grid.end(), step2.begin(), step2.end());
+  link_all_triangles(grid);
+  // вставить перестройку по Делоне
+  return grid;
+}
