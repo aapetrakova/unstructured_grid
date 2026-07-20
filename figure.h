@@ -64,13 +64,15 @@ struct Triangle {
   Triangle* near_AB = nullptr;
   Triangle* near_BC = nullptr;
   Triangle* near_CA = nullptr;
+  bool is_real;
   
   Triangle() = default;
   Triangle(ContourPoint& A, ContourPoint& B, ContourPoint& C)
     : A(A), B(B), C(C)
       , AB(&this->A, &this->B)
       , BC(&this->B, &this->C)
-      , CA(&this->C, &this->A) {}
+      , CA(&this->C, &this->A)
+      , is_real(true) {}
 
   Triangle(const Triangle& other) 
     : A(other.A), B(other.B), C(other.C)
@@ -79,7 +81,8 @@ struct Triangle {
       , CA(&this->C, &this->A)
       , near_AB(other.near_AB)
       , near_BC(other.near_BC)
-      , near_CA(other.near_CA) {}                                                                                                                                            
+      , near_CA(other.near_CA)
+      , is_real(other.is_real) {}                                                                                                                                            
   Triangle& operator=(const Triangle& other);
 
   Triangle(Triangle&& other) noexcept;

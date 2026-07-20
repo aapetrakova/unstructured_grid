@@ -61,7 +61,8 @@ Triangle& Triangle::operator=(const Triangle& other) {
   AB.next = other.AB.next; AB.prev = other.AB.prev;
   BC.next = other.BC.next; BC.prev = other.BC.prev;
   CA.next = other.CA.next; CA.prev = other.CA.prev;
-
+  
+  is_real = other.is_real;
   return *this;
 }
 
@@ -92,6 +93,7 @@ Triangle& Triangle::operator=(Triangle&& other) noexcept {
 
   other.near_AB = other.near_BC = other.near_CA = nullptr;
 
+  is_real = other.is_real;
   return *this;
 }
 
